@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D几何画廊</title>
+    <script src="three.min.js"></script>
+    <script src="gsap.min.js"></script>
+    <link rel="stylesheet" href="//at.alicdn.com/t/c/font_4893604_pmq308roz0g.css">
+    <style>
+        :root {
+            --primary: #4a6bff;
+            --bg: #121212;
+            --control-bg: rgba(30, 30, 35, 0.9);
+            --control-hover: rgba(50, 50, 60, 0.9);
+            --border-radius: 12px;
+            --transition: cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: #fff;
+            background: var(--bg);
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            touch-action: none;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+        }
+
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: var(--bg);
+            z-index: 100;
+            transition: opacity 0.8s var(--transition);
+        }
+
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--primary);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1.2s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        .loading-text {
+            font-size: 14px;
+            letter-spacing: 1.5px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 6px;
+            padding: 10px;
+            background: var(--control-bg);
+            border-radius: var(--border-radius);
+            backdrop-filter: blur(16px);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 10;
+            max-width: 95vw;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+
+        .controls::-webkit-scrollbar {
+            display: none;
+        }
+
+        .shape-btn {
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            border-radius: 10px;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .shape-btn:hover {
+            background: var(--control-hover);
+            transform: translateY(-1px);
+        }
+
+        .shape-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(74, 107, 255, 0.3);
+        }
+
+        .shape-btn i {
+            font-size: 14px;
+            width: 16px;
+            text-align: center;
+        }
+
+        .info-panel {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 18px;
+            background: var(--control-bg);
+            border-radius: var(--border-radius);
+            backdrop-filter: blur(16px);
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 10;
+            font-size: 13px;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .shape-name {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                bottom: 16px;
+                padding: 8px;
+                gap: 4px;
+            }
+            
+            .shape-btn {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            
+            .info-panel {
+                top: 16px;
+                padding: 8px 14px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div class="loading">
+        <div class="loader"></div>
+        <div class="loading-text">加载中...</div>
+    </div>
+
+    <div class="info-panel">
+        当前形状: <span class="shape-name">球体</span>
+    </div>
+
+    <div class="controls">
+        <button class="shape-btn active" data-shape="sphere">
+            <i class="iconfont icon-qiuti"></i> 球体
+        </button>
+        <button class="shape-btn" data-shape="box">
+            <i class="iconfont icon-box"></i> 立方体
+        </button>
+        <button class="shape-btn" data-shape="cone">
+            <i class="iconfont icon-yuanzhuitii"></i> 圆锥
+        </button>
+        <button class="shape-btn" data-shape="cylinder">
+            <i class="iconfont icon-yuanzhu"></i> 圆柱
+        </button>
+        <button class="shape-btn" data-shape="torus">
+            <i class="iconfont icon-yuanhuan"></i> 圆环
+        </button>
+        <!--<button class="shape-btn" data-shape="torusKnot">-->
+        <!--    <i class="iconfont icon-a-Asset115"></i> 扭结环-->
+        <!--</button>-->
+        <button class="shape-btn" data-shape="tetrahedron">
+            <i class="iconfont icon-icon-simianti"></i> 四面体
+        </button>
+        <button class="shape-btn" data-shape="octahedron">
+            <i class="iconfont icon-8"></i> 八面体
+        </button>
+        <button class="shape-btn" data-shape="dodecahedron">
+            <i class="iconfont icon-connectdevelop"></i> 十二面体
+        </button>
+        <button class="shape-btn" data-shape="icosahedron">
+            <i class="iconfont icon-ershimiantou"></i> 二十面体
+        </button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            class GeometryGallery {
+                constructor() {
+                    this.params = {
+                        size: 1.5,
+                        autoRotateSpeed: 0.004,
+                        dragSensitivity: 0.0035,
+                        rotationSmoothing: 0.08,
+                        colorChangeInterval: 5000, // 5秒变色一次
+                        mobileMultiplier: 0.8
+                    };
+                    
+                    this.state = {
+                        currentShape: 'sphere',
+                        isDragging: false,
+                        prevMouseX: 0,
+                        prevMouseY: 0,
+                        rotationX: 0,
+                        rotationY: 0,
+                        targetRotationX: 0,
+                        targetRotationY: 0,
+                        currentColor: new THREE.Color(0x4a6bff),
+                        targetColor: new THREE.Color(0x4a6bff),
+                        colorChangeProgress: 0,
+                        isMobile: /Mobi|Android/i.test(navigator.userAgent),
+                        lastColorChangeTime: 0
+                    };
+                    
+                    // 如果是移动设备，调整参数
+                    if (this.state.isMobile) {
+                        this.params.size *= this.params.mobileMultiplier;
+                        this.params.dragSensitivity *= 1.5;
+                    }
+                    
+                    this.initThree();
+                    this.initControls();
+                    this.initLoading();
+                    this.initEventListeners();
+                }
+                
+                initThree() {
+                    // 场景设置
+                    this.scene = new THREE.Scene();
+                    this.scene.background = new THREE.Color(0x121212);
+                    
+                    // 相机设置
+                    this.camera = new THREE.PerspectiveCamera(
+                        60, window.innerWidth / window.innerHeight, 0.1, 1000
+                    );
+                    this.camera.position.z = this.state.isMobile ? 6 : 5;
+                    
+                    // 渲染器设置
+                    this.renderer = new THREE.WebGLRenderer({
+                        canvas: document.getElementById('canvas'),
+                        antialias: true,
+                        powerPreference: "high-performance"
+                    });
+                    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                    
+                    // 环境光
+                    const ambientLight = new THREE.AmbientLight(0x404040, 1.2);
+                    this.scene.add(ambientLight);
+                    
+                    // 创建初始几何体
+                    this.createGeometry();
+                }
+                
+                createGeometry() {
+                    if (this.geometryMesh) {
+                        this.scene.remove(this.geometryMesh);
+                        this.geometryMesh.geometry.dispose();
+                        this.geometryMesh.material.dispose();
+                    }
+                    
+                    const geometry = this.getCurrentGeometry();
+                    
+                    // 创建简约线条材质
+                    this.material = new THREE.LineBasicMaterial({
+                        color: this.state.currentColor,
+                        linewidth: this.state.isMobile ? 1 : 1.5
+                    });
+                    
+                    // 使用线框而不是实体网格
+                    const edges = new THREE.EdgesGeometry(geometry);
+                    this.geometryMesh = new THREE.LineSegments(edges, this.material);
+                    this.scene.add(this.geometryMesh);
+                    
+                    // 重置旋转状态
+                    this.state.rotationX = 0;
+                    this.state.rotationY = 0;
+                    this.state.targetRotationX = 0;
+                    this.state.targetRotationY = 0;
+                    
+                    // 设置初始颜色
+                    this.updateColorBasedOnShape();
+                    this.state.lastColorChangeTime = Date.now();
+                    
+                    // 入场动画
+                    this.animateEntrance();
+                }
+                
+                getCurrentGeometry() {
+                    const size = this.params.size;
+                    const segments = this.state.isMobile ? 12 : 16;
+                    
+                    switch(this.state.currentShape) {
+                        case 'box': 
+                            return new THREE.BoxGeometry(size, size, size);
+                        case 'cone': 
+                            return new THREE.ConeGeometry(size/1.5, size*1.5, segments);
+                        case 'cylinder': 
+                            return new THREE.CylinderGeometry(size/2, size/2, size*2, segments);
+                        case 'torus': 
+                            return new THREE.TorusGeometry(size, size/3, segments, segments*2);
+                        case 'torusKnot': 
+                            // 优化扭结环参数，减少复杂度
+                            return new THREE.TorusKnotGeometry(size, size/4, 32, 8);
+                        case 'tetrahedron': 
+                            return new THREE.TetrahedronGeometry(size, 0);
+                        case 'octahedron': 
+                            return new THREE.OctahedronGeometry(size, 0);
+                        case 'dodecahedron': 
+                            return new THREE.DodecahedronGeometry(size, 0);
+                        case 'icosahedron': 
+                            return new THREE.IcosahedronGeometry(size, 0);
+                        default: // sphere
+                            return new THREE.SphereGeometry(size, segments, segments);
+                    }
+                }
+                
+                updateColorBasedOnShape() {
+                    // 基于形状设置基础色调
+                    const hueMap = {
+                        sphere: 220,    // 蓝色
+                        box: 0,         // 红色
+                        cone: 30,       // 橙色
+                        cylinder: 180,  // 青色
+                        torus: 270,     // 紫色
+                        torusKnot: 300, // 粉红
+                        tetrahedron: 120, // 绿色
+                        octahedron: 60,   // 黄色
+                        dodecahedron: 240, // 蓝色
+                        icosahedron: 150   // 蓝绿色
+                    };
+                    
+                    const baseHue = hueMap[this.state.currentShape] || Math.random() * 360;
+                    this.state.currentColor.setHSL(baseHue/360, 0.8, 0.7);
+                    this.state.targetColor.setHSL(baseHue/360, 0.8, 0.7);
+                    this.material.color.copy(this.state.currentColor);
+                    this.material.needsUpdate = true;
+                }
+                
+                updateColorTransition(currentTime) {
+                    // 每5秒改变一次颜色
+                    if (currentTime - this.state.lastColorChangeTime >= this.params.colorChangeInterval) {
+                        this.state.lastColorChangeTime = currentTime;
+                        this.state.colorChangeProgress = 0;
+                        
+                        // 计算新的目标颜色 (在基础色调周围变化)
+                        const hueMap = {
+                            sphere: 220,
+                            box: 0,
+                            cone: 30,
+                            cylinder: 180,
+                            torus: 270,
+                            torusKnot: 300,
+                            tetrahedron: 120,
+                            octahedron: 60,
+                            dodecahedron: 240,
+                            icosahedron: 150
+                        };
+                        
+                        const baseHue = hueMap[this.state.currentShape] || Math.random() * 360;
+                        const targetHue = (baseHue + Math.random() * 120 - 60) % 360;
+                        
+                        this.state.currentColor.copy(this.material.color);
+                        this.state.targetColor.setHSL(targetHue/360, 0.8, 0.7);
+                    }
+                    
+                    // 如果正在颜色过渡中
+                    if (this.state.colorChangeProgress < 1) {
+                        this.state.colorChangeProgress += 0.01;
+                        const t = Math.min(this.state.colorChangeProgress, 1);
+                        
+                        // 使用三次缓动函数实现平滑过渡
+                        const easeT = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+                        
+                        this.material.color.lerpColors(
+                            this.state.currentColor,
+                            this.state.targetColor,
+                            easeT
+                        );
+                        this.material.needsUpdate = true;
+                    }
+                }
+                
+                animateEntrance() {
+                    // 重置位置和缩放
+                    this.geometryMesh.position.set(0, 0, 0);
+                    this.geometryMesh.scale.set(0.1, 0.1, 0.1);
+                    this.geometryMesh.rotation.set(0, 0, 0);
+                    
+                    // 简约的入场动画
+                    gsap.to(this.geometryMesh.scale, {
+                        x: 1, y: 1, z: 1,
+                        duration: 0.8,
+                        ease: "sine.out"
+                    });
+                }
+                
+                initControls() {
+                    const buttons = document.querySelectorAll('.shape-btn');
+                    const shapeNameDisplay = document.querySelector('.shape-name');
+                    
+                    buttons.forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            // 更新按钮状态
+                            buttons.forEach(b => b.classList.remove('active'));
+                            btn.classList.add('active');
+                            
+                            // 更新形状名称
+                            const shapeName = btn.textContent.trim();
+                            shapeNameDisplay.textContent = shapeName;
+                            
+                            // 形状切换动画
+                            if (this.state.currentShape !== btn.dataset.shape) {
+                                this.state.currentShape = btn.dataset.shape;
+                                this.animateShapeChange();
+                            }
+                        });
+                    });
+                }
+                
+                animateShapeChange() {
+                    // 停止当前动画
+                    gsap.killTweensOf(this.geometryMesh.scale);
+                    
+                    // 简约的退出动画
+                    gsap.to(this.geometryMesh.scale, {
+                        x: 0.1, y: 0.1, z: 0.1,
+                        duration: 0.4,
+                        ease: "power2.in",
+                        onComplete: () => {
+                            // 创建新几何体
+                            this.createGeometry();
+                        }
+                    });
+                }
+                
+                initLoading() {
+                    // 模拟加载完成
+                    setTimeout(() => {
+                        gsap.to('.loading', {
+                            opacity: 0,
+                            duration: 0.6,
+                            onComplete: () => {
+                                document.querySelector('.loading').style.display = 'none';
+                                this.animate();
+                            }
+                        });
+                    }, 1200);
+                }
+                
+                initEventListeners() {
+                    const onPointerDown = (e) => {
+                        this.state.isDragging = true;
+                        this.state.prevMouseX = e.clientX || e.touches[0].clientX;
+                        this.state.prevMouseY = e.clientY || e.touches[0].clientY;
+                    };
+                    
+                    const onPointerMove = (e) => {
+                        if (!this.state.isDragging) return;
+                        
+                        const mouseX = e.clientX || e.touches[0].clientX;
+                        const mouseY = e.clientY || e.touches[0].clientY;
+                        
+                        const deltaX = mouseX - this.state.prevMouseX;
+                        const deltaY = mouseY - this.state.prevMouseY;
+                        
+                        this.state.targetRotationY += deltaX * this.params.dragSensitivity;
+                        this.state.targetRotationX += deltaY * this.params.dragSensitivity;
+                        
+                        this.state.prevMouseX = mouseX;
+                        this.state.prevMouseY = mouseY;
+                    };
+                    
+                    const onPointerUp = () => {
+                        this.state.isDragging = false;
+                    };
+                    
+                    document.addEventListener('mousedown', onPointerDown);
+                    document.addEventListener('mousemove', onPointerMove);
+                    document.addEventListener('mouseup', onPointerUp);
+                    
+                    document.addEventListener('touchstart', onPointerDown);
+                    document.addEventListener('touchmove', onPointerMove);
+                    document.addEventListener('touchend', onPointerUp);
+                    
+                    window.addEventListener('resize', () => {
+                        this.camera.aspect = window.innerWidth / window.innerHeight;
+                        this.camera.updateProjectionMatrix();
+                        this.renderer.setSize(window.innerWidth, window.innerHeight);
+                    });
+                }
+                
+                animate() {
+                    requestAnimationFrame(() => this.animate());
+                    const currentTime = Date.now();
+                    
+                    if (!this.state.isDragging) {
+                        this.state.targetRotationY += this.params.autoRotateSpeed;
+                    }
+                    
+                    this.state.rotationX += (this.state.targetRotationX - this.state.rotationX) * this.params.rotationSmoothing;
+                    this.state.rotationY += (this.state.targetRotationY - this.state.rotationY) * this.params.rotationSmoothing;
+                    
+                    this.geometryMesh.rotation.x = this.state.rotationX;
+                    this.geometryMesh.rotation.y = this.state.rotationY;
+                    
+                    this.updateColorTransition(currentTime);
+                    
+                    this.renderer.render(this.scene, this.camera);
+                }
+            }
+            
+            new GeometryGallery();
+        });
+    </script>
+</body>
+</html>
