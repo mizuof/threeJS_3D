@@ -31,9 +31,6 @@
 4. 将更改推送到分支 (`git push origin feature/your-feature`)。
 5. 提交一个 Pull Request。
 
-## 许可证
-本项目采用 [MIT 许可证](LICENSE)。
-
 ---
 
 # 3D Geometry Gallery
@@ -69,5 +66,3 @@ If you want to contribute to this project, please follow these steps:
 4. Push the changes to the branch (`git push origin feature/your-feature`).
 5. Submit a Pull Request.
 
-## License
-This project is licensed under the [MIT License](LICENSE).
